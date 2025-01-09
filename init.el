@@ -64,7 +64,8 @@
     ("clojure" . "clojure")
     ("css" . "css")
     ("d" . "d")
-    ("emacs-lisp" . "scheme")
+    ("emacs-lisp" . "emacs-lisp")
+    ("elisp" . "elisp")
     ("F90" . "fortran")
     ("gnuplot" . "gnuplot")
     ("groovy" . "groovy")
@@ -129,12 +130,12 @@ contextual information."
 
 ;; Support for magic links (link:// scheme)
 (org-link-set-parameters
-  "link"
-  :export (lambda (path desc backend)
-             (cond
-               ((eq 'html backend)
-                (format "<a href=\"link:%s\">%s</a>"
-                        path (or desc path))))))
+ "link"
+ :export (lambda (path desc backend)
+           (cond
+            ((eq 'html backend)
+             (format "<a href=\"link:%s\">%s</a>"
+                     path (or desc path))))))
 
 ;; Export function used by Nikola.
 (defun nikola-html-export (infile outfile)
