@@ -2,6 +2,11 @@
       org-export-with-toc t
       org-export-with-section-numbers t)
 
+(package-vc-install "https://github.com/jeffkreeftmeijer/ox-html-stable-ids.el.git")
+(use-package ox-html-stable-ids
+  :config (org-html-stable-ids-add)
+  :custom (org-html-stable-ids t))
+
 (defun clear-single-linebreak-in-cjk-string (string)
   "clear single line-break between cjk characters that is usually soft line-breaks"
   (let* ((regexp "\\([\u4E00-\u9FA5]\\)[ \n]+\\([\u4E00-\u9FA5]\\)")
