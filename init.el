@@ -32,17 +32,6 @@
            (expand-file-name "macros.org" (file-name-directory load-file-name)))
         (org-macro--collect-macros)))
 
-;;; Code highlighting
-(defun org-html-decode-plain-text (text)
-  "Convert HTML character to plain TEXT. i.e. do the inversion of
-     `org-html-encode-plain-text`. Possible conversions are set in
-     `org-html-protect-char-alist'."
-  (mapc
-   (lambda (pair)
-     (setq text (replace-regexp-in-string (cdr pair) (car pair) text t t)))
-   (reverse org-html-protect-char-alist))
-  text)
-
 ;; Use pygments highlighting for code
 (defun pygmentize (lang code)
   "Use Pygments to highlight the given code and return the output"
@@ -108,7 +97,7 @@ contextual information."
       (funcall old-export src-block contents info)
     (let ((lang (or (org-element-property :language src-block) ""))
           (code (car (org-export-unravel-code src-block))))
-      (pygmentize (downcase lang) (org-html-decode-plain-text code)))))
+      (pygmentize (downcase lang) code))))
 
 ;; Export images with custom link type
 (defun org-custom-link-img-url-export (path desc format)
