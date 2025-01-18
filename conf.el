@@ -25,7 +25,7 @@
           (cl-loop for zh-char across chars do
                    (aset pinyin-inverse-map (string-to-char zh-char) pinyin)))))))
 (defun char-to-pinyin (c)
-  (if-let ((pinyin (aref pinyin-inverse-map c)))
+  (if-let* ((pinyin (aref pinyin-inverse-map c)))
       (concat " " pinyin " ")
     (string c)))
 (define-advice org-html-stable-ids--to-kebab-case (:around (orig string))
@@ -45,6 +45,37 @@
     (clear-single-linebreak-in-cjk-string string)))
 (add-to-list 'org-export-filter-final-output-functions
              'ox-html-clear-single-linebreak-for-cjk)
+
+;; Handle [[file:...]] links
+(require 'org-macs)
+(setq org-html-link-org-files-as-html nil)
+(defvar nikola-root-dir
+  (file-name-concat (file-name-directory (or load-file-name ".")) "../..")
+  "The directory this Nikola blog (and the conf.py) is in.")
+(defvar nikola-post-link-rule (regexp-opt '(".org" ".md" ".rst")))
+(defvar nikola-ignored-prefix "/files/")
+(defun org-nikola--fix-media-path (filename)
+  (when (string-prefix-p "file:" filename)
+    (setq filename (substring filename 5)))
+  (if (or (org-url-p filename)
+          (not (file-in-directory-p filename nikola-root-dir)))
+      filename
+    (concat "/" (file-relative-name filename nikola-root-dir))))
+;; Fix media [[file:...]] links
+(define-advice org-html--format-image (:around (original path attrs info))
+  (funcall original (org-nikola--fix-media-path path) attrs info))
+;; Fix post [[file:...]] links
+(define-advice org-export-file-uri (:around (original file))
+  (let ((fixed (org-nikola--fix-media-path file)))
+    (cond
+     ((string-prefix-p nikola-ignored-prefix fixed)
+      (substring fixed (1- (length nikola-ignored-prefix))))
+     ((and (not (eq file fixed))
+           (string-match-p nikola-post-link-rule file))
+      (concat "link://filename" fixed))
+     ((string-prefix-p "/" file)
+      (concat "link://" file))
+     (t (funcall original file)))))
 
 ;; Footnotes
 (setq footnote-definitions (make-hash-table :test 'eq))
