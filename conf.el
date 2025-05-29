@@ -126,3 +126,7 @@
       ref)))
 ;; Disable footnote sections
 (define-advice org-html-footnote-section (:override (&rest _)) nil)
+;; In case you have a section named "Footnote", setting a different
+;; `org-footnote-section' at build time should prevent the advice from hiding
+;; your "Footnote" section.
+(setq org-footnote-section "this section is disabled and should never show up")
