@@ -5,6 +5,10 @@
 
 (setq package-load-list '(all))
 (package-initialize)
+
+(setq org-html-doctype "html5"
+      org-html-html5-fancy t)
+
 ;; Semantic HTML heading ID
 (use-package ox-html-stable-ids :ensure
   :vc (:url "https://codeberg.org/jkreeftmeijer/ox-html-stable-ids.el.git")
