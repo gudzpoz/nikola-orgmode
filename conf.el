@@ -1,7 +1,15 @@
 ;; Org configs
-(setq org-export-use-babel nil
-      org-export-with-toc t
+(setq org-export-with-toc t
       org-export-with-section-numbers t)
+
+(setq org-export-use-babel t)
+(add-to-list 'org-babel-default-header-args
+             '(:eval . "never-export"))
+(add-to-list 'org-babel-default-header-args
+             '(:exports . "both"))
+
+(add-to-list 'org-babel-default-header-args
+             '(:lexical . "t"))
 
 (setq package-load-list '(all))
 (package-initialize)
