@@ -7,6 +7,8 @@
              '(:eval . "never-export"))
 (add-to-list 'org-babel-default-header-args
              '(:exports . "both"))
+(add-to-list 'org-babel-default-header-args:elisp
+             '(:eval . "never-export"))
 
 (add-to-list 'org-babel-default-header-args
              '(:lexical . "t"))
