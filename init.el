@@ -33,15 +33,15 @@
         (org-macro--collect-macros)))
 
 ;; Use pygments highlighting for code
-(defun pygmentize (lang code)
+(defun pygmentize (lang code results)
   "Use Pygments to highlight the given code and return the output"
   (with-temp-buffer
     (insert code)
     (let ((lang (get-pygments-language lang)))
       (shell-command-on-region (point-min) (point-max)
-                               (if lang
-                                   (format "pygmentize -f html -l %s" lang)
-                                 "pygmentize -f html -g")
+                               (format "pygmentize -f html -O cssclass='highlight%s' %s"
+                                       (if results " results" "")
+                                       (if lang (concat "-l " lang) "-g"))
                                (buffer-name) t))
     (buffer-string)))
 
@@ -137,8 +137,9 @@ contextual information."
           (org-export-read-attribute :attr_html src-block :textarea))
       (funcall old-src-block src-block contents info)
     (let ((lang (or (org-element-property :language src-block) ""))
-          (code (car (org-export-unravel-code src-block))))
-      (pygmentize (downcase lang) code))))
+          (code (car (org-export-unravel-code src-block)))
+          (results (org-element-property :results src-block)))
+      (pygmentize (downcase lang) code results))))
 
 ;; Export images with custom link type
 (defun org-custom-link-img-url-export (path desc format)

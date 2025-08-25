@@ -9,6 +9,8 @@
              '(:exports . "both"))
 (add-to-list 'org-babel-default-header-args:elisp
              '(:eval . "never-export"))
+(add-to-list 'org-babel-default-header-args:elisp
+             '(:exports . "both"))
 
 (add-to-list 'org-babel-default-header-args
              '(:lexical . "t"))
@@ -144,3 +146,31 @@
 ;; `org-footnote-section' at build time should prevent the advice from hiding
 ;; your "Footnote" section.
 (setq org-footnote-section "this section is disabled and should never show up")
+
+;; Add a "results" CSS class to common blocks when they are marked as #+RESULTS
+(defvar ox-nikola-block-is-results nil)
+(dolist (ox-block '(org-html-example-block
+                    org-html-quote-block
+                    org-html-src-block))
+  (advice-add
+   ox-block :around
+   (lambda (old-block block contents info)
+     (let ((ox-nikola-block-is-results
+            (org-element-property :results block)))
+       (funcall old-block block contents info)))))
+(define-advice org-html--make-attribute-string (:around (old-maker attributes))
+  (when ox-nikola-block-is-results
+    (let ((class-val (plist-get attributes :class)))
+      (setq attributes (plist-put attributes :class
+                                  (if class-val
+                                      (concat "results " class-val)
+                                    "results")))))
+  (funcall old-maker attributes))
+;; Add a "results" CSS class for fixed-width blocks (lines prefixed with ": ")
+(defconst ox-nikola-assert-fixed-width-html
+  "<pre class=\"example\">")
+(define-advice org-html-fixed-width (:filter-return (html))
+  (if (string-prefix-p ox-nikola-assert-fixed-width-html
+                       html)
+      (concat "<pre class=\"results example\">" (substring html (length ox-nikola-assert-fixed-width-html)))
+    (error "unexpected fixed-width html")))
