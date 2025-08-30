@@ -1,3 +1,7 @@
+;; -*- lexical-binding: t; -*-
+(require 'ox)
+(require 'package)
+
 ;; Org configs
 (setq org-export-with-toc t
       org-export-with-section-numbers t)
@@ -11,6 +15,9 @@
              '(:eval . "never-export"))
 (add-to-list 'org-babel-default-header-args:elisp
              '(:exports . "both"))
+;; Just don't warn about :eval never-export
+(define-advice org-babel-check-evaluate (:around (fun info))
+  (let ((inhibit-message t)) (funcall fun info)))
 
 (add-to-list 'org-babel-default-header-args
              '(:lexical . "t"))
@@ -28,18 +35,20 @@
   :custom (org-html-stable-ids t))
 
 ;; Semantic ID for Chinese chars
-(defvar pinyin-inverse-map (make-char-table nil)
+(defvar pinyin-inverse-map
+  (eval-when-compile
+    (with-temp-buffer
+      (quail-use-package "chinese-py" "quail/PY")
+      (let ((decode-map (list 'decode-map)) (map (make-char-table nil)))
+        (quail-build-decode-map (list (quail-map)) "" decode-map 0 most-positive-fixnum)
+        (dolist (pair (cdr decode-map))
+          (pcase-let ((`(,pinyin . ,chars) pair))
+            (if (fixnump chars)
+                (aset map chars pinyin)
+              (cl-loop for zh-char across chars do
+                       (aset map (string-to-char zh-char) pinyin)))))
+        map)))
   "A char-table mapping from chars to their Chinese pinyin.")
-(with-temp-buffer
-  (quail-use-package "chinese-py" "quail/PY")
-  (let ((decode-map (list 'decode-map)))
-    (quail-build-decode-map (list (quail-map)) "" decode-map 0 most-positive-fixnum)
-    (dolist (pair (cdr decode-map))
-      (pcase-let ((`(,pinyin . ,chars) pair))
-        (if (fixnump chars)
-            (aset pinyin-inverse-map chars pinyin)
-          (cl-loop for zh-char across chars do
-                   (aset pinyin-inverse-map (string-to-char zh-char) pinyin)))))))
 (defun char-to-pinyin (c)
   (if-let* ((pinyin (aref pinyin-inverse-map c)))
       (concat " " pinyin " ")
@@ -56,7 +65,7 @@
       (setq string (replace-match "\\1\\2" nil nil string)
             start (string-match regexp string start))))
   string)
-(defun ox-html-clear-single-linebreak-for-cjk (string backend info)
+(defun ox-html-clear-single-linebreak-for-cjk (string backend _info)
   (when (org-export-derived-backend-p backend 'html)
     (clear-single-linebreak-in-cjk-string string)))
 (add-to-list 'org-export-filter-final-output-functions
@@ -94,7 +103,7 @@
      (t (funcall original file)))))
 
 ;; Footnotes
-(setq footnote-definitions (make-hash-table :test 'eq))
+(defvar footnote-definitions (make-hash-table :test 'eq))
 (defun org-nikola--find-footnote-def (footnote info)
   (let ((footnote-defs (with-memoization
                            (gethash info footnote-definitions)
@@ -113,7 +122,7 @@
            (equal label (number-to-string (string-to-number label))))
       n
     label))
-(defun org-nikola-footnote-definition (footnote contents info)
+(defun org-nikola-footnote-definition (footnote _contents info)
   (pcase-let ((`(,n ,label ,def) (org-nikola--find-footnote-def footnote info)))
     (setq label (org-footnote--label-id label n))
     (let ((anchor (org-html--anchor

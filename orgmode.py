@@ -63,7 +63,8 @@ class CompileOrgmode(PageCompiler):
         try:
             command = [
                 'emacs', '--batch',
-                '-l', join(dirname(abspath(__file__)), 'init.el'),
+                '-L', dirname(abspath(__file__)),
+                '-l', 'init',
                 '--eval', '(nikola-html-export "{0}" "{1}")'.format(
                     abspath(source), abspath(dest))
             ]

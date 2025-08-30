@@ -1,4 +1,4 @@
-;; Init file to use with the orgmode plugin.
+;; Init file to use with the orgmode plugin.  -*- lexical-binding: t; -*-
 
 ;; Load org-mode
 ;; Requires org-mode v8.x
@@ -8,29 +8,30 @@
 (package-initialize)
 
 (require 'org)
+(require 'ox)
 (require 'ox-html)
 
 ;;; Custom configuration for the export.
 
 ;;; Add any custom configuration that you would like to 'conf.el'.
-(setq nikola-use-pygments t
-      org-export-with-toc nil
+(defvar nikola-use-pygments t "Set to `t' to use pygments to highlight src blocks.")
+(setq org-export-with-toc nil
       org-export-with-section-numbers nil
       org-startup-folded 'showeverything)
 
 ;; Load additional configuration from conf.el
-(let ((conf (expand-file-name "conf.el" (file-name-directory load-file-name))))
-  (if (file-exists-p conf)
-      (load-file conf)))
+(load "conf")
 
 ;;; Macros
 
 ;; Load Nikola macros
-(setq nikola-macro-templates
-      (with-current-buffer
-          (find-file
-           (expand-file-name "macros.org" (file-name-directory load-file-name)))
-        (org-macro--collect-macros)))
+(defvar nikola-macro-templates
+  (eval-when-compile
+    (with-temp-buffer
+      (insert-file-contents
+       (expand-file-name "macros.org" (file-name-directory byte-compile-current-file)))
+      (org-mode)
+      (org-macro--collect-macros))))
 
 ;; Use pygments highlighting for code
 (defun pygmentize (lang code results)
@@ -146,7 +147,7 @@ contextual information."
   (cond
    ((eq format 'html)
     (format "<img src=\"%s\" alt=\"%s\"/>" path desc))))
-(org-add-link-type "img-url" nil 'org-custom-link-img-url-export)
+(org-link-set-parameters "img-url ":follow nil :export 'org-custom-link-img-url-export)
 
 ;; Support for magic links (link:// scheme)
 (org-link-set-parameters
