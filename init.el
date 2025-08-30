@@ -29,7 +29,9 @@
   (eval-when-compile
     (with-temp-buffer
       (insert-file-contents
-       (expand-file-name "macros.org" (file-name-directory byte-compile-current-file)))
+       (expand-file-name "macros.org"
+                         (file-name-directory (or byte-compile-current-file
+                                                  load-file-name))))
       (org-mode)
       (org-macro--collect-macros))))
 
