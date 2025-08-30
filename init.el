@@ -3,13 +3,19 @@
 ;; Load org-mode
 ;; Requires org-mode v8.x
 
-(require 'package)
-(setq package-load-list '((htmlize t)))
-(package-initialize)
-
 (require 'org)
+(require 'ob-core)
+(require 'ob-exp)
 (require 'ox)
 (require 'ox-html)
+
+(require 'package)
+(setq package-load-list '(all))
+(package-initialize)
+(eval '(use-package ox-html-stable-ids :ensure
+         :vc (:url "https://codeberg.org/jkreeftmeijer/ox-html-stable-ids.el.git")
+         :config (org-html-stable-ids-add)
+         :custom (org-html-stable-ids t)))
 
 ;;; Custom configuration for the export.
 
@@ -20,10 +26,33 @@
   "Regular expression to match post links, usually post file suffixes.")
 (defvar nikola-ignored-prefix "/files/"
   "Do not treat files under this prefix as post files.")
+(defvar nikola-pygments-html-extra-options ""
+  "Extra options for pygments html formatter. Run `pygmentize -H formatter
+html' for available ones.")
 
 (setq org-export-with-toc nil
       org-export-with-section-numbers nil
       org-startup-folded 'showeverything)
+
+;; Stop evaluating things
+(setq org-export-use-babel t)
+(defun set-header (sym key value)
+  (if-let* ((list (symbol-value sym))
+            (pair (assq key list)))
+      (setcdr pair value)
+    (set sym (cons (cons key value) (symbol-value sym)))))
+(set-header 'org-babel-default-header-args :eval "never-export")
+(set-header 'org-babel-default-header-args :exports "both")
+(set-header 'org-babel-default-inline-header-args :eval "never-export")
+(set-header 'org-babel-default-inline-header-args :exports "both")
+(set-header 'org-babel-default-header-args:elisp :eval "never-export")
+(set-header 'org-babel-default-header-args:elisp :exports "both")
+(set-header 'org-babel-default-header-args:elisp :lexical "yes")
+;; Just don't warn about :eval never-export
+(define-advice org-babel-check-evaluate (:around (fun info))
+  (let ((inhibit-message t)) (funcall fun info)))
+;; Don't evaluate inline src blocks, (:eval "never-export") does not work.
+(define-advice org-babel-exp-results (:override (&rest _args)))
 
 ;; Load additional configuration from conf.el
 (add-to-list 'load-path (file-name-directory load-file-name))
@@ -43,16 +72,21 @@
       (org-macro--collect-macros))))
 
 ;; Use pygments highlighting for code
-(defun pygmentize (lang code results)
+(defun pygmentize (lang code label results)
   "Use Pygments to highlight the given code and return the output"
   (with-temp-buffer
     (insert code)
     (let ((lang (get-pygments-language lang)))
       (shell-command-on-region (point-min) (point-max)
-                               (format "pygmentize -f html -O cssclass='highlight%s' %s"
+                               (format "pygmentize -f html -O cssclass='highlight%s',wrapcode=1,%s %s"
                                        (if results " results" "")
+                                       nikola-pygments-html-extra-options
                                        (if lang (concat "-l " lang) "-g"))
                                (buffer-name) t))
+    (when label
+      (goto-char (point-min))
+      (re-search-forward "\\`<div")
+      (replace-match (concat "<div" label)))
     (buffer-string)))
 ;; Add a "results" CSS class to common blocks when they are marked as #+RESULTS
 (defvar ox-nikola--block-is-results nil)
@@ -166,17 +200,31 @@ http://pygments.org/docs/lexers/ for adding new languages to the mapping.")
       (if (member lang org-pygments-detected-languages) lang))))
 
 ;; Override the html export function to use pygments
+(defun org-html--label (block)
+  (let ((lbl (org-element-property :name block)))
+    (if lbl (format " id=\"%s\"" lbl) "")))
+(define-advice org-html-stable-ids--extract-id (:around (fun datum))
+  (or (org-element-property :name datum)
+      (funcall fun datum)))
 (define-advice org-html-src-block (:around (old-src-block src-block contents info))
-  "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
   (if (or (not nikola-use-pygments)
           (org-export-read-attribute :attr_html src-block :textarea))
       (funcall old-src-block src-block contents info)
     (let ((lang (or (org-element-property :language src-block) ""))
           (code (car (org-export-unravel-code src-block)))
+          (label (org-html--label src-block))
           (results (org-element-property :results src-block)))
-      (pygmentize (downcase lang) code results))))
+      (pygmentize (downcase lang) code label results))))
+(define-advice org-html-inline-src-block (:around (old-fun src-block contents info))
+  (if (not nikola-use-pygments)
+      (funcall old-fun src-block contents info)
+    (let* ((lang (downcase (org-element-property :language src-block)))
+           (code (org-element-property :value src-block))
+           (label (org-html--label src-block))
+           (nikola-pygments-html-extra-options "nowrap=1")
+           (html (pygmentize lang code nil nil)))
+      ;; Default CSS selector: .code .codetable span
+      (format "<span class=\"code\"><code class=\"codetable\"%s>%s</code>" label html))))
 
 ;; Export images with custom link type ([[img-url:/images/xxx.png]])
 (defun org-custom-link-img-url-export (path desc format)

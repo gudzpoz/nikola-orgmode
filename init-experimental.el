@@ -1,38 +1,12 @@
 ;; -*- lexical-binding: t; -*-
 (require 'ox)
-(require 'package)
 
 ;; Org configs
 (setq org-export-with-toc t
       org-export-with-section-numbers t)
 
-(setq org-export-use-babel t)
-(add-to-list 'org-babel-default-header-args
-             '(:eval . "never-export"))
-(add-to-list 'org-babel-default-header-args
-             '(:exports . "both"))
-(add-to-list 'org-babel-default-header-args:elisp
-             '(:eval . "never-export"))
-(add-to-list 'org-babel-default-header-args:elisp
-             '(:exports . "both"))
-;; Just don't warn about :eval never-export
-(define-advice org-babel-check-evaluate (:around (fun info))
-  (let ((inhibit-message t)) (funcall fun info)))
-
-(add-to-list 'org-babel-default-header-args
-             '(:lexical . "t"))
-
-(setq package-load-list '(all))
-(package-initialize)
-
 (setq org-html-doctype "html5"
       org-html-html5-fancy t)
-
-;; Semantic HTML heading ID
-(use-package ox-html-stable-ids :ensure
-  :vc (:url "https://codeberg.org/jkreeftmeijer/ox-html-stable-ids.el.git")
-  :config (org-html-stable-ids-add)
-  :custom (org-html-stable-ids t))
 
 ;; Semantic ID for Chinese chars
 (defvar pinyin-inverse-map
