@@ -30,9 +30,12 @@
   "Extra options for pygments html formatter. Run `pygmentize -H formatter
 html' for available ones.")
 
-(setq org-export-with-toc nil
-      org-export-with-section-numbers nil
-      org-startup-folded 'showeverything)
+;; Better defaults?
+(setq org-export-with-toc t
+      org-export-with-section-numbers t
+      org-startup-folded 'showeverything
+      org-html-doctype "html5"
+      org-html-html5-fancy t)
 
 ;; Stop evaluating things
 (setq org-export-use-babel t)

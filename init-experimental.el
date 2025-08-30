@@ -1,12 +1,14 @@
 ;; -*- lexical-binding: t; -*-
+
 (require 'ox)
 
-;; Org configs
-(setq org-export-with-toc t
-      org-export-with-section-numbers t)
 
-(setq org-html-doctype "html5"
-      org-html-html5-fancy t)
+(defvar ox-html-clear-cjk-line-breaks t
+  "Chinese, for example, does not use spaces to separate words, while
+Org-mode `org-fill-paragraph' inserts new lines between lines. These
+lines will be transformed into spaces when compiling to HTML, making
+Chinese texts look bad. Set it to `t' to remove spaces between Chinese
+chars.")
 
 ;; Semantic ID for Chinese chars
 (defvar pinyin-inverse-map
@@ -40,7 +42,8 @@
             start (string-match regexp string start))))
   string)
 (defun ox-html-clear-single-linebreak-for-cjk (string backend _info)
-  (when (org-export-derived-backend-p backend 'html)
+  (when (and ox-html-clear-cjk-line-breaks
+             (org-export-derived-backend-p backend 'html))
     (clear-single-linebreak-in-cjk-string string)))
 (add-to-list 'org-export-filter-final-output-functions
              'ox-html-clear-single-linebreak-for-cjk)
