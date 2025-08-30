@@ -14,13 +14,20 @@
 ;;; Custom configuration for the export.
 
 ;;; Add any custom configuration that you would like to 'conf.el'.
-(defvar nikola-use-pygments t "Set to `t' to use pygments to highlight src blocks.")
+(defvar nikola-use-pygments t
+  "Set to `t' to use pygments to highlight src blocks.")
+(defvar nikola-post-link-regexp (regexp-opt '(".org" ".md" ".rst"))
+  "Regular expression to match post links, usually post file suffixes.")
+(defvar nikola-ignored-prefix "/files/"
+  "Do not treat files under this prefix as post files.")
+
 (setq org-export-with-toc nil
       org-export-with-section-numbers nil
       org-startup-folded 'showeverything)
 
 ;; Load additional configuration from conf.el
-(load "conf")
+(add-to-list 'load-path (file-name-directory load-file-name))
+(load "init-experimental")
 
 ;;; Macros
 
@@ -47,6 +54,33 @@
                                        (if lang (concat "-l " lang) "-g"))
                                (buffer-name) t))
     (buffer-string)))
+;; Add a "results" CSS class to common blocks when they are marked as #+RESULTS
+(defvar ox-nikola--block-is-results nil)
+(dolist (ox-block '(org-html-example-block
+                    org-html-quote-block
+                    org-html-src-block))
+  (advice-add
+   ox-block :around
+   (lambda (old-block block contents info)
+     (let ((ox-nikola--block-is-results
+            (org-element-property :results block)))
+       (funcall old-block block contents info)))))
+(define-advice org-html--make-attribute-string (:around (old-maker attributes))
+  (when ox-nikola--block-is-results
+    (let ((class-val (plist-get attributes :class)))
+      (setq attributes (plist-put attributes :class
+                                  (if class-val
+                                      (concat "results " class-val)
+                                    "results")))))
+  (funcall old-maker attributes))
+;; Add a "results" CSS class for fixed-width blocks (lines prefixed with ": ")
+(defconst ox-nikola-assert-fixed-width-html
+  "<pre class=\"example\">")
+(define-advice org-html-fixed-width (:filter-return (html))
+  (if (string-prefix-p ox-nikola-assert-fixed-width-html
+                       html)
+      (concat "<pre class=\"results example\">" (substring html (length ox-nikola-assert-fixed-width-html)))
+    (error "unexpected fixed-width html")))
 
 (defconst org-pygments-language-alist
   '(("asymptote" . "asymptote")
@@ -144,12 +178,41 @@ contextual information."
           (results (org-element-property :results src-block)))
       (pygmentize (downcase lang) code results))))
 
-;; Export images with custom link type
+;; Export images with custom link type ([[img-url:/images/xxx.png]])
 (defun org-custom-link-img-url-export (path desc format)
   (cond
    ((eq format 'html)
     (format "<img src=\"%s\" alt=\"%s\"/>" path desc))))
-(org-link-set-parameters "img-url ":follow nil :export 'org-custom-link-img-url-export)
+(org-link-set-parameters "img-url " :export 'org-custom-link-img-url-export)
+
+;; Handle [[file:...]] links
+(require 'org-macs)
+(setq org-html-link-org-files-as-html nil)
+(defvar nikola-root-dir
+  (file-name-concat (file-name-directory (or load-file-name ".")) "../..")
+  "The directory this Nikola blog (and the conf.py) is in.")
+(defun org-nikola--fix-media-path (filename)
+  (when (string-prefix-p "file:" filename)
+    (setq filename (substring filename 5)))
+  (if (or (org-url-p filename)
+          (not (file-in-directory-p filename nikola-root-dir)))
+      filename
+    (concat "/" (file-relative-name filename nikola-root-dir))))
+;; Fix media [[file:...]] links
+(define-advice org-html--format-image (:around (original path attrs info))
+  (funcall original (org-nikola--fix-media-path path) attrs info))
+;; Fix post [[file:...]] links
+(define-advice org-export-file-uri (:around (original file))
+  (let ((fixed (org-nikola--fix-media-path file)))
+    (cond
+     ((string-prefix-p nikola-ignored-prefix fixed)
+      (substring fixed (1- (length nikola-ignored-prefix))))
+     ((and (not (eq file fixed))
+           (string-match-p nikola-post-link-regexp file))
+      (concat "link://filename" fixed))
+     ((string-prefix-p "/" file)
+      (concat "link://" file))
+     (t (funcall original file)))))
 
 ;; Support for magic links (link:// scheme)
 (org-link-set-parameters
@@ -168,3 +231,7 @@ specified location."
     (org-macro-replace-all nikola-macro-templates)
     (org-html-export-as-html nil nil t t)
     (write-file outfile nil)))
+
+;; Load user config last to allow advicing
+(add-to-list 'load-path (file-name-directory (file-name-directory load-file-name)))
+(load "orgconf" t)

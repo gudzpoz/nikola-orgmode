@@ -71,37 +71,6 @@
 (add-to-list 'org-export-filter-final-output-functions
              'ox-html-clear-single-linebreak-for-cjk)
 
-;; Handle [[file:...]] links
-(require 'org-macs)
-(setq org-html-link-org-files-as-html nil)
-(defvar nikola-root-dir
-  (file-name-concat (file-name-directory (or load-file-name ".")) "../..")
-  "The directory this Nikola blog (and the conf.py) is in.")
-(defvar nikola-post-link-rule (regexp-opt '(".org" ".md" ".rst")))
-(defvar nikola-ignored-prefix "/files/")
-(defun org-nikola--fix-media-path (filename)
-  (when (string-prefix-p "file:" filename)
-    (setq filename (substring filename 5)))
-  (if (or (org-url-p filename)
-          (not (file-in-directory-p filename nikola-root-dir)))
-      filename
-    (concat "/" (file-relative-name filename nikola-root-dir))))
-;; Fix media [[file:...]] links
-(define-advice org-html--format-image (:around (original path attrs info))
-  (funcall original (org-nikola--fix-media-path path) attrs info))
-;; Fix post [[file:...]] links
-(define-advice org-export-file-uri (:around (original file))
-  (let ((fixed (org-nikola--fix-media-path file)))
-    (cond
-     ((string-prefix-p nikola-ignored-prefix fixed)
-      (substring fixed (1- (length nikola-ignored-prefix))))
-     ((and (not (eq file fixed))
-           (string-match-p nikola-post-link-rule file))
-      (concat "link://filename" fixed))
-     ((string-prefix-p "/" file)
-      (concat "link://" file))
-     (t (funcall original file)))))
-
 ;; Footnotes
 (defvar footnote-definitions (make-hash-table :test 'eq))
 (defun org-nikola--find-footnote-def (footnote info)
@@ -155,31 +124,3 @@
 ;; `org-footnote-section' at build time should prevent the advice from hiding
 ;; your "Footnote" section.
 (setq org-footnote-section "this section is disabled and should never show up")
-
-;; Add a "results" CSS class to common blocks when they are marked as #+RESULTS
-(defvar ox-nikola-block-is-results nil)
-(dolist (ox-block '(org-html-example-block
-                    org-html-quote-block
-                    org-html-src-block))
-  (advice-add
-   ox-block :around
-   (lambda (old-block block contents info)
-     (let ((ox-nikola-block-is-results
-            (org-element-property :results block)))
-       (funcall old-block block contents info)))))
-(define-advice org-html--make-attribute-string (:around (old-maker attributes))
-  (when ox-nikola-block-is-results
-    (let ((class-val (plist-get attributes :class)))
-      (setq attributes (plist-put attributes :class
-                                  (if class-val
-                                      (concat "results " class-val)
-                                    "results")))))
-  (funcall old-maker attributes))
-;; Add a "results" CSS class for fixed-width blocks (lines prefixed with ": ")
-(defconst ox-nikola-assert-fixed-width-html
-  "<pre class=\"example\">")
-(define-advice org-html-fixed-width (:filter-return (html))
-  (if (string-prefix-p ox-nikola-assert-fixed-width-html
-                       html)
-      (concat "<pre class=\"results example\">" (substring html (length ox-nikola-assert-fixed-width-html)))
-    (error "unexpected fixed-width html")))
