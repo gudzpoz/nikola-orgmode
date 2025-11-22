@@ -1,8 +1,5 @@
 ;; -*- lexical-binding: t; -*-
-
 (require 'ox)
-
-
 (defvar ox-html-clear-cjk-line-breaks t
   "Chinese, for example, does not use spaces to separate words, while
 Org-mode `org-fill-paragraph' inserts new lines between lines. These

@@ -118,6 +118,12 @@ html' for available ones.")
                        html)
       (concat "<pre class=\"results example\">" (substring html (length ox-nikola-assert-fixed-width-html)))
     (error "unexpected fixed-width html")))
+;; Add a "table" div wrapper for tables (so that one can make tables scrollable on mobile)
+(define-advice org-html-table (:around (f &rest args))
+  (let ((is-results (org-element-property :results (car args)))
+        (html (apply f args)))
+    (concat (format "<div class=\"table%s\">" (if is-results " results" ""))
+            html "</div>")))
 
 (defconst org-pygments-language-alist
   '(("asymptote" . "asymptote")
@@ -284,5 +290,5 @@ specified location."
     (write-file outfile nil)))
 
 ;; Load user config last to allow advicing
-(add-to-list 'load-path (file-name-directory (file-name-directory load-file-name)))
+(add-to-list 'load-path (file-name-parent-directory (file-name-directory load-file-name)))
 (load "orgconf" t)
